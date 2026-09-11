@@ -421,17 +421,39 @@ func MustHaveSymlink(t testing.TB) {
 
 // HasLink reports whether the current system can use os.Link.
 func HasLink() bool {
+	if runtime.GOOS == "ohos" {
+		return !os.IsPermission(ohosLinkError())
+	}
 	// From Android release M (Marshmallow), hard linking files is blocked
 	// and an attempt to call link() on a file will return EACCES.
 	// - https://code.google.com/p/android-developer-preview/issues/detail?id=3150
 	return runtime.GOOS != "plan9" && runtime.GOOS != "android"
 }
 
+// OHOS hard-link permission depends on the host application sandbox.
+// Probe the actual test filesystem rather than assuming every OHOS host
+// has the same policy. Setup errors leave tests enabled to report them.
+var ohosLinkError = sync.OnceValue(func() error {
+	dir, err := os.MkdirTemp("", "go-hardlink-probe-")
+	if err != nil {
+		return nil
+	}
+	defer os.RemoveAll(dir)
+	src := filepath.Join(dir, "source")
+	if err := os.WriteFile(src, nil, 0600); err != nil {
+		return nil
+	}
+	return os.Link(src, filepath.Join(dir, "target"))
+})
+
 // MustHaveLink reports whether the current system can use os.Link.
 // If not, MustHaveLink calls t.Skip with an explanation.
 func MustHaveLink(t testing.TB) {
 	if !HasLink() {
 		t.Helper()
+		if runtime.GOOS == "ohos" {
+			t.Skipf("hardlinks denied by the OHOS test environment: %v", ohosLinkError())
+		}
 		t.Skipf("skipping test: hardlinks are not supported on %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 }

@@ -34,12 +34,28 @@
 #define TP_ALIGN
 #endif
 
+#ifdef TLS_darwin
+#define RACE_SAVE_R27
+#endif
+#ifdef GOOS_ohos
+#define RACE_SAVE_R27
+#endif
+
 // Load g from TLS. (See tls_arm64.s)
+#ifdef GOOS_ohos
+// OHOS uses TLSDESC, including in the race runtime's C callbacks. R11 is
+// scratch here and survives load_g. Save LR explicitly for NOFRAME thunks.
+#define load_g \
+	MOVD LR, R11 \
+	BL runtime·load_g(SB) \
+	MOVD R11, LR
+#else
 #define load_g \
 	MRS_TPIDR_R0 \
 	TP_ALIGN \
 	MOVD    runtime·tls_g(SB), R11 \
 	MOVD    (R0)(R11), g
+#endif
 
 // func runtime·raceread(addr uintptr)
 // Called from instrumented code.
@@ -147,7 +163,7 @@ TEXT	runtime·racewriterangepc1(SB), NOSPLIT, $0-24
 
 // If addr (R1) is out of range, do nothing.
 // Otherwise, setup goroutine context and invoke racecall. Other arguments already set.
-TEXT	racecalladdr<>(SB), NOSPLIT, $0-0
+TEXT	racecalladdr<>(SB), NOSPLIT|NOFRAME, $0-0
 	load_g
 	MOVD	g_racectx(g), R0
 	// Check that addr is within [arenastart, arenaend) or within [racedatastart, racedataend).
@@ -188,7 +204,7 @@ TEXT	racefuncenter<>(SB), NOSPLIT, $0-0
 
 // func runtime·racefuncexit()
 // Called from instrumented code.
-TEXT	runtime·racefuncexit<ABIInternal>(SB), NOSPLIT, $0-0
+TEXT	runtime·racefuncexit<ABIInternal>(SB), NOSPLIT|NOFRAME, $0-0
 	load_g
 	MOVD	g_racectx(g), R0	// race context
 	// void __tsan_func_exit(ThreadState *thr);
@@ -496,11 +512,11 @@ TEXT	runtime·racecallbackthunk(SB), NOSPLIT|NOFRAME, $0
 	// benefit from this fast path.
 	CBNZ	R0, rest
 	MOVD	g, R13
-#ifdef TLS_darwin
+#ifdef RACE_SAVE_R27
 	MOVD	R27, R12 // save R27 a.k.a. REGTMP (callee-save in C). load_g clobbers it
 #endif
 	load_g
-#ifdef TLS_darwin
+#ifdef RACE_SAVE_R27
 	MOVD	R12, R27
 #endif
 	MOVD	g_m(g), R0
@@ -553,7 +569,10 @@ noswitch:
 	BL	runtime·racecallback(SB)
 	JMP	ret
 
+#ifndef GOOS_ohos
 #ifndef TLSG_IS_VARIABLE
 // tls_g, g value for each thread in TLS
 GLOBL runtime·tls_g+0(SB), TLSBSS+DUPOK, $8
 #endif
+
+#endif // !GOOS_ohos

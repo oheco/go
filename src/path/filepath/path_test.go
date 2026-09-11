@@ -1180,15 +1180,20 @@ func testEvalSymlinks(t *testing.T, path, want string) {
 }
 
 func testEvalSymlinksAfterChdir(t *testing.T, wd, path, want string) {
-	t.Chdir(wd)
-	have, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		t.Errorf("EvalSymlinks(%q) in %q directory error: %v", path, wd, err)
-		return
-	}
-	if filepath.Clean(have) != filepath.Clean(want) {
-		t.Errorf("EvalSymlinks(%q) in %q directory returns %q, want %q", path, wd, have, want)
-	}
+	// Restore the original directory after each lookup. Some sandboxes allow
+	// chdir to a directory (such as /), but deny opening it to save a second
+	// restoration handle on the next call to t.Chdir.
+	t.Run(wd+"/"+path, func(t *testing.T) {
+		t.Chdir(wd)
+		have, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			t.Errorf("EvalSymlinks(%q) in %q directory error: %v", path, wd, err)
+			return
+		}
+		if filepath.Clean(have) != filepath.Clean(want) {
+			t.Errorf("EvalSymlinks(%q) in %q directory returns %q, want %q", path, wd, have, want)
+		}
+	})
 }
 
 func TestEvalSymlinks(t *testing.T) {

@@ -488,7 +488,7 @@ func (ctxt *Link) extld() []string {
 		// This only matters when link tool is called directly without explicit -extld,
 		// go tool already passes the correct linker in other cases.
 		switch buildcfg.GOOS {
-		case "darwin", "freebsd", "openbsd":
+		case "darwin", "freebsd", "openbsd", "ohos":
 			flagExtld = []string{"clang"}
 		default:
 			flagExtld = []string{"gcc"}
@@ -854,7 +854,7 @@ func (ctxt *Link) linksetup() {
 	// The Android Q linker started to complain about underalignment of the our TLS
 	// section. We don't actually use the section on android, so don't
 	// generate it.
-	if buildcfg.GOOS != "android" {
+	if buildcfg.GOOS != "android" && buildcfg.GOOS != "ohos" {
 		tlsg := ctxt.loader.LookupOrCreateSym("runtime.tlsg", 0)
 		sb := ctxt.loader.MakeSymbolUpdater(tlsg)
 
@@ -1381,6 +1381,9 @@ func (ctxt *Link) archive() {
 
 	exitIfErrors()
 
+	if *flagExtar == "" && buildcfg.GOOS == "ohos" {
+		*flagExtar = "llvm-ar"
+	}
 	if *flagExtar == "" {
 		const printProgName = "--print-prog-name=ar"
 		cc := ctxt.extld()
@@ -1687,6 +1690,12 @@ func (ctxt *Link) hostlink() {
 			argv = append(argv, "-Wl,-z,relro")
 		}
 		argv = append(argv, "-shared")
+		if buildcfg.GOOS == "ohos" {
+			// Subsequent Go links read GCData pointers from this library's
+			// on-disk type descriptors. LLD otherwise leaves those slots
+			// unrelocated and records the final value only in RELA addends.
+			argv = append(argv, "-Wl,--apply-dynamic-relocs")
+		}
 	case BuildModePlugin:
 		if ctxt.HeadType == objabi.Hdarwin {
 			argv = append(argv, "-dynamiclib")
@@ -1695,6 +1704,14 @@ func (ctxt *Link) hostlink() {
 				argv = append(argv, "-Wl,-z,relro")
 			}
 			argv = append(argv, "-shared")
+			if buildcfg.GOOS == "ohos" {
+				// OHOS uses DF_1_GLOBAL to include a dlopened object's
+				// symbols in subsequent objects' relocation scope. RTLD_GLOBAL
+				// alone is insufficient. Go types and itabs must interpose
+				// across plugins, or interface equality can compare unequal
+				// copies of the same type.
+				argv = append(argv, "-Wl,-z,global")
+			}
 		}
 	}
 

@@ -96,6 +96,7 @@ var okgoos = []string{
 	"wasip1",
 	"linux",
 	"android",
+	"ohos",
 	"solaris",
 	"freebsd",
 	"nacl", // keep;
@@ -322,6 +323,7 @@ func compilerEnv(envName, def string) map[string]string {
 
 // clangos lists the operating systems where we prefer clang to gcc.
 var clangos = []string{
+	"ohos",          // HarmonyOS ships LLVM/Clang.
 	"darwin", "ios", // macOS 10.9 and later require clang
 	"freebsd", // FreeBSD 10 and later do not ship gcc
 	"openbsd", // OpenBSD ships with GCC 4.2, which is now quite old.
@@ -647,7 +649,7 @@ func mustLinkExternal(goos, goarch string, cgoEnabled bool) bool {
 		}
 
 		switch goos {
-		case "android":
+		case "android", "ohos":
 			return true
 		case "dragonfly":
 			// It seems that on Dragonfly thread local storage is
@@ -1068,6 +1070,12 @@ func runInstall(pkg string, ch chan struct{}) {
 	xremove(link[targ])
 	bgrun(&wg, "", link...)
 	bgwait(&wg)
+	// dist links go_bootstrap directly, without cmd/go post-processing.
+	if harmonyHost() {
+		if err := signHarmonyBinary(link[targ]); err != nil {
+			fatalf("%v", err)
+		}
+	}
 }
 
 // packagefile returns the path to a compiled .a file for the given package
@@ -1089,6 +1097,7 @@ var unixOS = map[string]bool{
 	"ios":       true,
 	"linux":     true,
 	"netbsd":    true,
+	"ohos":      true,
 	"openbsd":   true,
 	"solaris":   true,
 }
@@ -1099,7 +1108,7 @@ func matchtag(tag string) bool {
 	case "gc", "cmd_go_bootstrap", "go1.1":
 		return true
 	case "linux":
-		return goos == "linux" || goos == "android"
+		return goos == "linux" || goos == "android" || goos == "ohos"
 	case "solaris":
 		return goos == "solaris" || goos == "illumos"
 	case "darwin":
@@ -1124,7 +1133,7 @@ func shouldbuild(file, pkg string) bool {
 	name := filepath.Base(file)
 	excluded := func(list []string, ok string) bool {
 		for _, x := range list {
-			if x == ok || (ok == "android" && x == "linux") || (ok == "illumos" && x == "solaris") || (ok == "ios" && x == "darwin") {
+			if x == ok || ((ok == "android" || ok == "ohos") && x == "linux") || (ok == "illumos" && x == "solaris") || (ok == "ios" && x == "darwin") {
 				continue
 			}
 			i := strings.Index(name, x)
@@ -1810,6 +1819,7 @@ var cgoEnabled = map[string]bool{
 	"android/amd64":   true,
 	"android/arm":     true,
 	"android/arm64":   true,
+	"ohos/arm64":      true,
 	"ios/arm64":       true,
 	"ios/amd64":       true,
 	"js/wasm":         false,

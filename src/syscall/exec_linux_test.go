@@ -102,6 +102,9 @@ func TestEmptyCredGroupsDisableSetgroups(t *testing.T) {
 }
 
 func TestUnshare(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects namespace/mount syscalls with SIGSYS")
+	}
 	path := "/proc/net/dev"
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
@@ -219,6 +222,9 @@ func TestGroupCleanupUserNamespace(t *testing.T) {
 // Test for https://go.dev/issue/19661: unshare fails because systemd
 // has forced / to be shared
 func TestUnshareMountNameSpace(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects namespace/mount syscalls with SIGSYS")
+	}
 	const mountNotSupported = "mount is not supported: " // Output prefix indicating a test skip.
 	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" {
 		dir := flag.Args()[0]
@@ -268,6 +274,9 @@ func TestUnshareMountNameSpace(t *testing.T) {
 
 // Test for Issue 20103: unshare fails when chroot is used
 func TestUnshareMountNameSpaceChroot(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects namespace/mount syscalls with SIGSYS")
+	}
 	const mountNotSupported = "mount is not supported: " // Output prefix indicating a test skip.
 	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" {
 		dir := flag.Args()[0]
@@ -334,6 +343,9 @@ func TestUnshareMountNameSpaceChroot(t *testing.T) {
 
 // Test for Issue 29789: unshare fails when uid/gid mapping is specified
 func TestUnshareUidGidMapping(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects namespace/mount syscalls with SIGSYS")
+	}
 	if asan.Enabled {
 		t.Skip("test fails with ASAN beause the ASAN leak checker fails finding memory regions")
 	}
@@ -466,6 +478,9 @@ func TestUseCgroupFD(t *testing.T) {
 }
 
 func TestCloneTimeNamespace(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects namespace syscalls with SIGSYS")
+	}
 	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" {
 		timens, err := os.Readlink("/proc/self/ns/time")
 		if err != nil {
@@ -558,6 +573,9 @@ func TestPidFD(t *testing.T) {
 }
 
 func TestPidFDWithUserNS(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects user namespace creation with SIGSYS")
+	}
 	if err := testPidFD(t, true); err != nil {
 		if testenv.SyscallIsNotSupported(err) {
 			t.Skip("userns not supported:", err)
@@ -567,6 +585,9 @@ func TestPidFDWithUserNS(t *testing.T) {
 }
 
 func TestPidFDClone3(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects clone3 with SIGSYS")
+	}
 	*syscall.ForceClone3 = true
 	defer func() { *syscall.ForceClone3 = false }()
 
@@ -618,6 +639,9 @@ func TestAmbientCaps(t *testing.T) {
 }
 
 func TestAmbientCapsUserns(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects user namespace creation with SIGSYS")
+	}
 	b, err := os.ReadFile("/proc/sys/kernel/apparmor_restrict_unprivileged_userns")
 	if err == nil && strings.TrimSpace(string(b)) == "1" {
 		t.Skip("AppArmor restriction for unprivileged user namespaces is enabled")

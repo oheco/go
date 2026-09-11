@@ -63,3 +63,31 @@ func TestGoodOSArch(t *testing.T) {
 		}
 	}
 }
+
+func TestOhosConstraints(t *testing.T) {
+	ctxt := (*Context)(&build.Context{GOOS: "ohos", GOARCH: "arm64"})
+	for _, tag := range []string{"ohos", "linux", "unix", "arm64"} {
+		if !ctxt.matchTag(tag, nil) {
+			t.Errorf("ohos/arm64 does not match %q", tag)
+		}
+	}
+	for _, tt := range []GoodFileTest{
+		{"file_ohos.go", true},
+		{"file_ohos_arm64.go", true},
+		{"file_ohos_arm64.syso", true},
+		{"file_linux_arm64.syso", false},
+		{"file_linux.syso", false},
+		{"file_arm64.syso", true},
+		{"file_linux_arm64.go", true},
+		{"file_android.go", false},
+		{"file_ohos_amd64.go", false},
+	} {
+		if got := ctxt.goodOSArchFile(tt.name, nil); got != tt.result {
+			t.Errorf("goodOSArchFile(%q) = %v, want %v", tt.name, got, tt.result)
+		}
+	}
+	linux := (*Context)(&build.Context{GOOS: "linux", GOARCH: "arm64"})
+	if linux.goodOSArchFile("file_ohos.go", nil) || linux.matchTag("ohos", nil) {
+		t.Fatal("Linux must not select ohos-only source")
+	}
+}

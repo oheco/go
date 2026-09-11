@@ -295,10 +295,17 @@ func Exec(argv0 string, argv []string, envv []string) (err error) {
 		err1 = execveLibc(argv0p, &argvp[0], &envvp[0])
 
 	default:
-		_, _, err1 = RawSyscall(SYS_EXECVE,
-			uintptr(unsafe.Pointer(argv0p)),
-			uintptr(unsafe.Pointer(&argvp[0])),
-			uintptr(unsafe.Pointer(&envvp[0])))
+		for {
+			_, _, err1 = RawSyscall(SYS_EXECVE,
+				uintptr(unsafe.Pointer(argv0p)),
+				uintptr(unsafe.Pointer(&argvp[0])),
+				uintptr(unsafe.Pointer(&envvp[0])))
+			// OHOS may interrupt execve before replacing the process image,
+			// for example while other threads receive preemption signals.
+			if runtime.GOOS != "ohos" || err1 != EINTR {
+				break
+			}
+		}
 	}
 	runtime_AfterExec()
 	return err1

@@ -78,6 +78,7 @@ var (
 	flagMsan          = flag.Bool("msan", false, "enable MSan interface")
 	flagAsan          = flag.Bool("asan", false, "enable ASan interface")
 	flagAslr          = flag.Bool("aslr", true, "enable ASLR for buildmode=c-shared on windows")
+	flagOhosSign      = flag.Bool("ohossign", true, "sign OHOS binaries when linking on HarmonyOS")
 
 	flagFieldTrack = flag.String("k", "", "set field tracking `symbol`")
 	flagLibGCC     = flag.String("libgcc", "", "compiler support lib for internal linking; use \"none\" to disable")
@@ -488,6 +489,12 @@ func Main(arch *sys.Arch, theArch Arch) {
 	ctxt.Bso.Flush()
 	bench.Start("archive")
 	ctxt.archive()
+	if nerrors == 0 && *flagOhosSign && buildcfg.GOOS == "ohos" && ctxt.BuildMode != BuildModeCArchive && harmonyHost() {
+		bench.Start("sign")
+		if err := signHarmonyBinary(*flagOutfile); err != nil {
+			Exitf("%v", err)
+		}
+	}
 	bench.Report(os.Stdout)
 
 	errorexit()

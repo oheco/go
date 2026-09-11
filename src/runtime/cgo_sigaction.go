@@ -33,7 +33,22 @@ func sigaction(sig uint32, new, old *sigactiont) {
 	if asanenabled && new != nil {
 		asanwrite(unsafe.Pointer(new), unsafe.Sizeof(*new))
 	}
-	if _cgo_sigaction == nil || inForkedChild {
+	inChild := false
+	if GOOS == "ohos" {
+		// Concurrent vfork children share the parent's address space. A
+		// process-wide flag can be cleared by one child while another is
+		// still resetting signals. Calling libc in that window would reset
+		// the parent's musl sigchain entries as well as the child's handlers.
+		// Use the current M's marker instead. Its parent thread cannot
+		// run until this child execs or exits; other children use other Ms.
+		if mainStarted {
+			gp := getg()
+			inChild = gp != nil && gp.m != nil && gp.m.inForkedChild
+		}
+	} else {
+		inChild = inForkedChild
+	}
+	if _cgo_sigaction == nil || inChild {
 		sysSigaction(sig, new, old)
 	} else {
 		// We need to call _cgo_sigaction, which means we need a big enough stack

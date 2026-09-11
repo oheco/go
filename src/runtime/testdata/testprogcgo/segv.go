@@ -29,6 +29,9 @@ func SegvInCgo() {
 
 	syscall.Kill(syscall.Getpid(), syscall.SIGSEGV)
 
-	// Wait for the OS to deliver the signal.
-	C.pause()
+	// Other signals, including asynchronous preemption, can interrupt pause
+	// before SIGSEGV is delivered. Keep waiting for the fatal signal.
+	for {
+		C.pause()
+	}
 }

@@ -208,7 +208,7 @@ func matchTag(name string, tags map[string]bool, prefer bool) bool {
 
 	switch name {
 	case "linux":
-		return tags["android"]
+		return tags["android"] || tags["ohos"]
 	case "solaris":
 		return tags["illumos"]
 	case "darwin":
@@ -263,7 +263,7 @@ func Eval(x constraint.Expr, tags map[string]bool, prefer bool) bool {
 //
 // Exceptions:
 //
-//	if GOOS=android, then files with GOOS=linux are also matched.
+//	if GOOS=android or GOOS=ohos, then files with GOOS=linux are also matched.
 //	if GOOS=illumos, then files with GOOS=solaris are also matched.
 //	if GOOS=ios, then files with GOOS=darwin are also matched.
 //

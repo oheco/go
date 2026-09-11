@@ -45,6 +45,7 @@ func TestReadUnixgramWithUnnamedSocket(t *testing.T) {
 		os.Remove(addr)
 	}()
 
+	var sender syscall.Sockaddr
 	off := make(chan bool)
 	data := [5]byte{1, 2, 3, 4, 5}
 	go func() {
@@ -60,6 +61,13 @@ func TestReadUnixgramWithUnnamedSocket(t *testing.T) {
 			t.Error(err)
 			return
 		}
+		if runtime.GOOS == "ohos" {
+			// OHOS autobinds the sending socket even without an explicit Bind.
+			sender, err = syscall.Getsockname(s)
+			if err != nil {
+				t.Error(err)
+			}
+		}
 	}()
 
 	<-off
@@ -69,7 +77,12 @@ func TestReadUnixgramWithUnnamedSocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if from != nil {
+	if runtime.GOOS == "ohos" {
+		want := sockaddrToUnixgram(sender)
+		if want == nil || from == nil || from.String() != want.String() {
+			t.Fatalf("peer address = %v, want autobound sender %v", from, want)
+		}
+	} else if from != nil {
 		t.Fatalf("unexpected peer address: %v", from)
 	}
 	if !bytes.Equal(b[:n], data[:]) {
@@ -283,7 +296,7 @@ func TestUnixConnLocalAndRemoteNames(t *testing.T) {
 		}
 
 		switch runtime.GOOS {
-		case "android", "linux", "windows":
+		case "android", "linux", "ohos", "windows":
 			if laddr == "" {
 				laddr = "@" // autobind feature
 			}
@@ -339,7 +352,7 @@ func TestUnixgramConnLocalAndRemoteNames(t *testing.T) {
 		}()
 
 		switch runtime.GOOS {
-		case "android", "linux":
+		case "android", "linux", "ohos":
 			if laddr == "" {
 				laddr = "@" // autobind feature
 			}

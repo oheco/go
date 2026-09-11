@@ -8,6 +8,7 @@ package runtime_test
 
 import (
 	"runtime"
+	"syscall"
 	"testing"
 	"unsafe"
 )
@@ -18,8 +19,15 @@ import (
 func TestMmapErrorSign(t *testing.T) {
 	p, err := runtime.Mmap(nil, ^uintptr(0)&^(runtime.GetPhysPageSize()-1), 0, runtime.MAP_ANON|runtime.MAP_PRIVATE, -1, 0)
 
-	if p != nil || err != runtime.ENOMEM {
-		t.Errorf("mmap = %v, %v, want nil, %v", p, err, runtime.ENOMEM)
+	want := int(runtime.ENOMEM)
+	if runtime.GOOS == "ohos" && err == int(syscall.EINVAL) {
+		// The OHOS kernel rejects an overflowing length with EINVAL,
+		// while the cgo libc wrapper can reject it earlier with ENOMEM.
+		// Both must be positive, as required by the runtime allocator.
+		want = int(syscall.EINVAL)
+	}
+	if p != nil || err != want {
+		t.Errorf("mmap = %v, %v, want nil, %v", p, err, want)
 	}
 }
 

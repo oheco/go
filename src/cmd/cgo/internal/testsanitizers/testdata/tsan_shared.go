@@ -20,6 +20,10 @@ package main
 #include <ucontext.h>
 
 void check_params(int signo, siginfo_t *info, void *context) {
+	if (info == NULL || context == NULL) {
+		fprintf(stderr, "signal handler did not receive siginfo/ucontext.\n");
+		abort();
+	}
 	ucontext_t* uc = (ucontext_t*)(context);
 
 	if (info->si_signo != signo) {
@@ -27,10 +31,20 @@ void check_params(int signo, siginfo_t *info, void *context) {
 		abort();
 	}
 
+#if defined(__OHOS__) && defined(__aarch64__)
+	// OHOS supplies a zero uc_stack even for a native C handler running
+	// on a registered alternate stack. Check the saved PC instead, keeping
+	// the assertion that Go forwarded a valid SA_SIGINFO context.
+	if (uc->uc_mcontext.pc == 0) {
+		fprintf(stderr, "ucontext has no saved PC.\n");
+		abort();
+	}
+#else
 	if (uc->uc_stack.ss_size == 0) {
 		fprintf(stderr, "uc_stack has size 0.\n");
 		abort();
 	}
+#endif
 }
 
 

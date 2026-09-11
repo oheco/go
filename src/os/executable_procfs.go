@@ -17,7 +17,7 @@ func executable() (string, error) {
 	switch runtime.GOOS {
 	default:
 		return "", errors.New("Executable not implemented for " + runtime.GOOS)
-	case "linux", "android":
+	case "linux", "android", "ohos":
 		procfn = "/proc/self/exe"
 	}
 	path, err := Readlink(procfn)

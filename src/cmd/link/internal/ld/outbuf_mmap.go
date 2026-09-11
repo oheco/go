@@ -27,8 +27,9 @@ func (out *OutBuf) Mmap(filesize uint64) (err error) {
 	if err != nil {
 		// Some file systems do not support fallocate. We ignore that error as linking
 		// can still take place, but you might SIGBUS when you write to the mmapped
-		// area.
-		if err != syscall.ENOTSUP && err != syscall.EOPNOTSUPP && err != syscall.EPERM && err != errNoFallocate {
+		// area. HarmonyOS denies fallocate with EACCES while permitting truncate
+		// and writable mappings. Those operations below still check file access.
+		if err != syscall.ENOTSUP && err != syscall.EOPNOTSUPP && err != syscall.EPERM && err != syscall.EACCES && err != errNoFallocate {
 			return err
 		}
 	}

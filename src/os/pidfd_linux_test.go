@@ -28,7 +28,9 @@ func TestFindProcessViaPidfd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("starting test process: %v", err)
 	}
-	p.Wait()
+	if _, err := p.Wait(); err != nil {
+		t.Fatalf("waiting for test process: %v", err)
+	}
 
 	// Use pid of a non-existing process.
 	proc, err := os.FindProcess(p.Pid)
@@ -41,7 +43,7 @@ func TestFindProcessViaPidfd(t *testing.T) {
 		t.Fatal("FindProcess: got nil, want non-nil")
 	}
 	if proc.Status() != os.StatusDone {
-		t.Fatalf("got process status: %v, want %d", proc.Status(), os.StatusDone)
+		t.Fatalf("pid %d: got process status: %v, want %d", p.Pid, proc.Status(), os.StatusDone)
 	}
 
 	// Check that all Process' public methods work as expected with

@@ -6,8 +6,39 @@ package main
 
 import (
 	"internal/platform"
+	"os"
+	"path/filepath"
 	"testing"
 )
+
+func TestOhosBuildConstraints(t *testing.T) {
+	oldOS, oldArch := goos, goarch
+	goos, goarch = "ohos", "arm64"
+	t.Cleanup(func() { goos, goarch = oldOS, oldArch })
+	dir := t.TempDir()
+	for _, tt := range []struct {
+		name, constraint string
+		want             bool
+	}{
+		{"port_ohos.go", "ohos && unix", true},
+		{"port_linux_arm64.go", "linux", true},
+		{"port_linux.go", "linux && !ohos", false},
+		{"port_android.go", "", false},
+		{"port_ohos_amd64.go", "", false},
+	} {
+		file := filepath.Join(dir, tt.name)
+		data := "package runtime\n"
+		if tt.constraint != "" {
+			data = "//go:build " + tt.constraint + "\n\n" + data
+		}
+		if err := os.WriteFile(file, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if got := shouldbuild(file, "runtime"); got != tt.want {
+			t.Errorf("shouldbuild(%s) = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
 
 // TestMustLinkExternal verifies that the mustLinkExternal helper
 // function matches internal/platform.MustLinkExternal.

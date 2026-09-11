@@ -997,6 +997,9 @@ func testLockOSThreadExit(t *testing.T, prog string) {
 }
 
 func TestLockOSThreadAvoidsStatePropagation(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects unshare with SIGSYS")
+	}
 	want := "OK\n"
 	skip := "unshare not permitted\n"
 	output := runTestProg(t, "testprog", "LockOSThreadAvoidsStatePropagation", "GOMAXPROCS=1")

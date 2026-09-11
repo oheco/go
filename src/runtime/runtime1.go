@@ -395,7 +395,7 @@ func parseRuntimeDebugVars(godebug string) {
 	debug.cgocheck = 1
 	debug.invalidptr = 1
 	debug.adaptivestackstart = 1 // set this to 0 to turn larger initial goroutine stacks off
-	if GOOS == "linux" {
+	if GOOS == "linux" || GOOS == "ohos" {
 		// On Linux, MADV_FREE is faster than MADV_DONTNEED,
 		// but doesn't affect many of the statistics that
 		// MADV_DONTNEED does until the memory is actually

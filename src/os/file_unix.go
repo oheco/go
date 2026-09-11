@@ -24,6 +24,27 @@ func fixLongPath(path string) string {
 }
 
 func rename(oldname, newname string) error {
+	origOld, origNew := oldname, newname
+	if runtime.GOOS == "ohos" {
+		var err error
+		oldname, err = resolveOhosTrailingSlash(oldname, false)
+		if err != nil {
+			return &LinkError{"rename", origOld, origNew, err}
+		}
+		if len(newname) > 0 && IsPathSeparator(newname[len(newname)-1]) {
+			fi, err := Lstat(oldname)
+			if err != nil {
+				return &LinkError{"rename", origOld, origNew, underlyingError(err)}
+			}
+			if !fi.IsDir() {
+				return &LinkError{"rename", origOld, origNew, syscall.ENOTDIR}
+			}
+		}
+		newname, err = resolveOhosTrailingSlash(newname, true)
+		if err != nil {
+			return &LinkError{"rename", origOld, origNew, err}
+		}
+	}
 	fi, err := Lstat(newname)
 	if err == nil && fi.IsDir() {
 		// There are two independent errors this function can return:
@@ -38,16 +59,16 @@ func rename(oldname, newname string) error {
 			if pe, ok := err.(*PathError); ok {
 				err = pe.Err
 			}
-			return &LinkError{"rename", oldname, newname, err}
+			return &LinkError{"rename", origOld, origNew, err}
 		} else if newname == oldname || !SameFile(fi, ofi) {
-			return &LinkError{"rename", oldname, newname, syscall.EEXIST}
+			return &LinkError{"rename", origOld, origNew, syscall.EEXIST}
 		}
 	}
 	err = ignoringEINTR(func() error {
 		return syscall.Rename(oldname, newname)
 	})
 	if err != nil {
-		return &LinkError{"rename", oldname, newname, err}
+		return &LinkError{"rename", origOld, origNew, err}
 	}
 	return nil
 }
@@ -355,6 +376,14 @@ func Truncate(name string, size int64) error {
 // Remove removes the named file or (empty) directory.
 // If there is an error, it will be of type [*PathError].
 func Remove(name string) error {
+	origName := name
+	if runtime.GOOS == "ohos" {
+		var err error
+		name, err = resolveOhosTrailingSlash(name, false)
+		if err != nil {
+			return &PathError{Op: "remove", Path: origName, Err: err}
+		}
+	}
 	// System call interface forces us to know
 	// whether name is a file or directory.
 	// Try both: it is cheaper on average than
@@ -384,7 +413,7 @@ func Remove(name string) error {
 	if e1 != syscall.ENOTDIR {
 		e = e1
 	}
-	return &PathError{Op: "remove", Path: name, Err: e}
+	return &PathError{Op: "remove", Path: origName, Err: e}
 }
 
 func tempDir() string {

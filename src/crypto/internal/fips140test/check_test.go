@@ -60,6 +60,22 @@ func TestIntegrityCheckFailure(t *testing.T) {
 		}
 	}
 
+	if runtime.GOOS == "ohos" {
+		// Updating the FIPS checksum also invalidates the executable signature.
+		// Re-sign so the test exercises FIPS verification inside the runtime.
+		signed := binPath + ".signed"
+		cmd := testenv.Command(t, "binary-sign-tool", "sign", "-inFile", binPath, "-outFile", signed, "-selfSign", "1")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("binary-sign-tool failed (check LLVM PATH): %v\n%s", err, out)
+		}
+		if err := os.Chmod(signed, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Rename(signed, binPath); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	t.Logf("running modified binary...")
 	cmd := testenv.Command(t, binPath, "-test.v", "-test.run=^TestIntegrityCheck$")
 	cmd.Env = append(cmd.Environ(), "GODEBUG=fips140=on")

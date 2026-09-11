@@ -1,0 +1,46 @@
+diff --git a/compiler-rt/lib/msan/msan_interceptors.cpp b/compiler-rt/lib/msan/msan_interceptors.cpp
+index c4a9e88..3d8bf2f 100644
+--- a/compiler-rt/lib/msan/msan_interceptors.cpp
++++ b/compiler-rt/lib/msan/msan_interceptors.cpp
+@@ -1523,6 +1523,7 @@ static int msan_dl_iterate_phdr_cb(__sanitizer_dl_phdr_info *info, SIZE_T size,
+   return cbdata->callback(info, size, cbdata->data);
+ }
+ 
++#if SANITIZER_INTERCEPT_SHMCTL
+ INTERCEPTOR(void *, shmat, int shmid, const void *shmaddr, int shmflg) {
+   ENSURE_MSAN_INITED();
+   void *p = REAL(shmat)(shmid, shmaddr, shmflg);
+@@ -1536,6 +1537,8 @@ INTERCEPTOR(void *, shmat, int shmid, const void *shmaddr, int shmflg) {
+   return p;
+ }
+ 
++#endif
++
+ INTERCEPTOR(int, dl_iterate_phdr, dl_iterate_phdr_cb callback, void *data) {
+   void *ctx;
+   COMMON_INTERCEPTOR_ENTER(ctx, dl_iterate_phdr, callback, data);
+@@ -1758,7 +1761,9 @@ void InitializeInterceptors() {
+   INTERCEPT_FUNCTION(tzset);
+   INTERCEPT_FUNCTION(atexit);
+   INTERCEPT_FUNCTION(__cxa_atexit);
++#if SANITIZER_INTERCEPT_SHMCTL
+   INTERCEPT_FUNCTION(shmat);
++#endif
+   INTERCEPT_FUNCTION(fork);
+   MSAN_MAYBE_INTERCEPT_OPENPTY;
+   MSAN_MAYBE_INTERCEPT_FORKPTY;
+diff --git a/compiler-rt/lib/msan/msan_thread.cpp b/compiler-rt/lib/msan/msan_thread.cpp
+index 40ad6a5..43e17ab 100644
+--- a/compiler-rt/lib/msan/msan_thread.cpp
++++ b/compiler-rt/lib/msan/msan_thread.cpp
+@@ -36,6 +36,10 @@ void MsanThread::ClearShadowForThreadStackAndTLS() {
+   if (tls_begin_ != tls_end_)
+     __msan_unpoison((void *)tls_begin_, tls_end_ - tls_begin_);
+   DTLS *dtls = DTLS_Get();
++#if SANITIZER_OHOS
++  // OHOS musl does not use the glibc dynamic-TLS interceptor.
++  if (!dtls) return;
++#endif
+   CHECK_NE(dtls, 0);
+   ForEachDVT(dtls, [](const DTLS::DTV &dtv, int id) {
+     __msan_unpoison((void *)(dtv.beg), dtv.size);

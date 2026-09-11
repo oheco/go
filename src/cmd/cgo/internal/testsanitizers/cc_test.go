@@ -542,6 +542,12 @@ func (c *config) checkCSanitizer() (skip bool, err error) {
 	defer cancelRun()
 	cmd = exec.CommandContext(runCtx, dst)
 	makeHangProne(cmd)
+	if c.sanitizer == "leak" {
+		// ASan can work even when its runtime was built without LSan.
+		// Enable the feature in the probe so that such SDKs report the
+		// missing support rather than silently passing this empty program.
+		appendASANOptions(cmd, "detect_leaks=1")
+	}
 	if c.sanitizer == "address" {
 		// Match the compile-time probe above: avoid libasan's implicit LSan exit
 		// scan for this standalone C binary. The explicit LSAN tests still run

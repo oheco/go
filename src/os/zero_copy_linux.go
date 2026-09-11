@@ -5,6 +5,7 @@
 package os
 
 import (
+	"internal/goos"
 	"internal/poll"
 	"io"
 	"syscall"
@@ -57,6 +58,15 @@ func (f *File) readFrom(r io.Reader) (written int64, handled bool, err error) {
 }
 
 func (f *File) spliceToFile(r io.Reader) (written int64, handled bool, err error) {
+	if goos.IsOhos != 0 {
+		// OHOS does not support the pipe-to-device leg of splice, including
+		// /dev/null. Check before consuming the source into an intermediate
+		// pipe: after that point a buffered-copy fallback would lose data.
+		st, err := f.Stat()
+		if err != nil || !st.Mode().IsRegular() {
+			return 0, false, nil
+		}
+	}
 	var (
 		remain int64
 		lr     *io.LimitedReader

@@ -2163,6 +2163,9 @@
 // Using GOOS=android matches build tags and files as for GOOS=linux
 // in addition to android tags and files.
 //
+// Using GOOS=ohos matches build tags and files as for GOOS=linux
+// in addition to ohos tags and files.
+//
 // Using GOOS=illumos matches build tags and files as for GOOS=solaris
 // in addition to illumos tags and files.
 //

@@ -108,9 +108,10 @@ var sysdir = func() *sysDir {
 				"local",
 			},
 		}
-	case "wasip1":
+	case "wasip1", "ohos":
 		// wasmtime has issues resolving symbolic links that are often present
 		// in directories like /etc/group below (e.g. private/etc/group on OSX).
+		// OHOS may permit listing /etc but deny stat on individual entries.
 		// For this reason we use files in the Go source tree instead.
 		return &sysDir{
 			runtime.GOROOT(),
@@ -1677,7 +1678,7 @@ func TestChdirAndGetwd(t *testing.T) {
 		dirs = []string{"/system/bin"}
 	case "plan9":
 		dirs = []string{"/", "/usr"}
-	case "ios", "windows", "wasip1":
+	case "ios", "windows", "wasip1", "ohos":
 		dirs = nil
 		for _, dir := range []string{t.TempDir(), t.TempDir()} {
 			// Expand symlinks so path equality tests work.

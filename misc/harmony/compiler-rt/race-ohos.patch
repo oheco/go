@@ -1,0 +1,105 @@
+diff --git a/compiler-rt/lib/tsan/go/test.c b/compiler-rt/lib/tsan/go/test.c
+index 1b0d828..1ccfb50 100644
+--- a/compiler-rt/lib/tsan/go/test.c
++++ b/compiler-rt/lib/tsan/go/test.c
+@@ -51,7 +51,11 @@ void symbolize_cb(long cmd, void *ctx) {
+  * of Go programs looks like.  To prevent running over existing mappings,
+  * we pick an address slightly inside the Go heap region.
+  */
++#if defined(GO_OHOS)
++void *go_heap = (void *)0x0111110000;
++#else
+ void *go_heap = (void *)0xC011110000;
++#endif
+ char *buf0;
+ 
+ void foobar() {}
+@@ -84,6 +88,10 @@ int main(void) {
+   __tsan_go_start(thr0, &thr1, (char*)&barfoo + 1);
+   void *thr2 = 0;
+   __tsan_go_start(thr0, &thr2, (char*)&barfoo + 1);
++  // Goroutine that exits without a single event.
++  void *thr3 = 0;
++  __tsan_go_start(thr0, &thr3, (char*)&barfoo + 1);
++  __tsan_go_end(thr3);
+   __tsan_func_exit(thr0);
+   __tsan_func_enter(thr1, (char*)&foobar + 1);
+   __tsan_func_enter(thr1, (char*)&foobar + 1);
+diff --git a/compiler-rt/lib/tsan/rtl/tsan_platform.h b/compiler-rt/lib/tsan/rtl/tsan_platform.h
+index cfbb57d..cdd9f15 100644
+--- a/compiler-rt/lib/tsan/rtl/tsan_platform.h
++++ b/compiler-rt/lib/tsan/rtl/tsan_platform.h
+@@ -623,6 +623,32 @@ struct MappingGoAarch64 {
+   static const uptr kShadowAdd = 0x200000000000ull;
+ };
+ 
++/*
++Go on HarmonyOS/aarch64 (39-bit VMA).
++The executable and Go heap occupy the low 32 GiB; Go's allocator uses
++[4 GiB, 32 GiB). The shadow is 64 GiB, and metadata is 8 GiB.
++C allocations are not instrumented by Go TSan. The high musl mappings
++are left available for the loader, C heap and native thread stacks.
++*/
++struct MappingGoOhos39 {
++  static const uptr kLoAppMemBeg = 0x0000001000ull;
++  static const uptr kLoAppMemEnd = 0x0800000000ull;
++  static const uptr kShadowBeg = 0x1000000000ull;
++  static const uptr kShadowEnd = 0x2000000000ull;
++  static const uptr kMetaShadowBeg = 0x2000000000ull;
++  static const uptr kMetaShadowEnd = 0x2200000000ull;
++  static const uptr kMidAppMemBeg = 0;
++  static const uptr kMidAppMemEnd = 0;
++  static const uptr kHiAppMemBeg = 0;
++  static const uptr kHiAppMemEnd = 0;
++  static const uptr kHeapMemBeg = 0;
++  static const uptr kHeapMemEnd = 0;
++  static const uptr kVdsoBeg = 0;
++  static const uptr kShadowMsk = 0;
++  static const uptr kShadowXor = 0;
++  static const uptr kShadowAdd = 0x1000000000ull;
++};
++
+ /*
+ Go on linux/mips64 (47-bit VMA)
+ 0000 0000 1000 - 0000 1000 0000: executable
+@@ -697,6 +723,10 @@ ALWAYS_INLINE auto SelectMapping(Arg arg) {
+ #  elif defined(__s390x__)
+   return Func::template Apply<MappingGoS390x>(arg);
+ #  elif defined(__aarch64__)
++#if defined(GO_OHOS)
++  if (vmaSize == 39)
++    return Func::template Apply<MappingGoOhos39>(arg);
++#endif
+   return Func::template Apply<MappingGoAarch64>(arg);
+ #  elif SANITIZER_WINDOWS
+   return Func::template Apply<MappingGoWindows>(arg);
+diff --git a/compiler-rt/lib/tsan/rtl/tsan_platform_linux.cpp b/compiler-rt/lib/tsan/rtl/tsan_platform_linux.cpp
+index 369509e..69916e1 100644
+--- a/compiler-rt/lib/tsan/rtl/tsan_platform_linux.cpp
++++ b/compiler-rt/lib/tsan/rtl/tsan_platform_linux.cpp
+@@ -225,7 +225,11 @@ void InitializePlatformEarly() {
+     Die();
+   }
+ #else
+-  if (vmaSize != 48) {
++  if (vmaSize != 48
++#if defined(GO_OHOS)
++      && vmaSize != 39
++#endif
++  ) {
+     Printf("FATAL: ThreadSanitizer: unsupported VMA range\n");
+     Printf("FATAL: Found %zd - Supported 48\n", vmaSize);
+     Die();
+diff --git a/compiler-rt/lib/tsan/rtl/tsan_trace.h b/compiler-rt/lib/tsan/rtl/tsan_trace.h
+index 01bb7b3..1e791ff 100644
+--- a/compiler-rt/lib/tsan/rtl/tsan_trace.h
++++ b/compiler-rt/lib/tsan/rtl/tsan_trace.h
+@@ -190,7 +190,7 @@ struct Trace {
+   Mutex mtx;
+   IList<TraceHeader, &TraceHeader::trace_parts, TracePart> parts;
+   // First node non-queued into ctx->trace_part_recycle.
+-  TracePart* local_head;
++  TracePart* local_head = nullptr;
+   // Final position in the last part for finished threads.
+   Event* final_pos = nullptr;
+   // Number of trace parts allocated on behalf of this trace specifically.

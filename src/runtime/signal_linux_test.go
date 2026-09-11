@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -22,6 +23,9 @@ import (
 //
 // The test is Linux-specific because it uses CLONE_NEWPID to run as PID 1.
 func TestSignalPid1(t *testing.T) {
+	if runtime.GOOS == "ohos" {
+		t.Skip("OHOS application sandbox rejects PID namespace creation with SIGSYS")
+	}
 	t.Parallel()
 
 	exe, err := buildTestProg(t, "testprog")

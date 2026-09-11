@@ -163,7 +163,7 @@ func sigInstallGoHandler(sig uint32) bool {
 		}
 	}
 
-	if (GOOS == "linux" || GOOS == "android") && !iscgo && sig == sigPerThreadSyscall {
+	if (GOOS == "linux" || GOOS == "android" || GOOS == "ohos") && !iscgo && sig == sigPerThreadSyscall {
 		// sigPerThreadSyscall is the same signal used by glibc for
 		// per-thread syscalls on Linux. We use it for the same purpose
 		// in non-cgo binaries.
@@ -353,7 +353,7 @@ func doSigPreempt(gp *g, ctxt *sigctxt) {
 	gp.m.preemptGen.Add(1)
 	gp.m.signalPending.Store(0)
 
-	if GOOS == "darwin" || GOOS == "ios" {
+	if preemptNeedsExecLock {
 		pendingPreemptSignals.Add(-1)
 	}
 }
@@ -367,14 +367,14 @@ const preemptMSupported = true
 // safe-point, it will preempt the goroutine. It always atomically
 // increments mp.preemptGen after handling a preemption request.
 func preemptM(mp *m) {
-	// On Darwin, don't try to preempt threads during exec.
-	// Issue #41702.
-	if GOOS == "darwin" || GOOS == "ios" {
+	// Darwin and OHOS must not receive preemption signals during exec.
+	// See issue #41702 for the Darwin case.
+	if preemptNeedsExecLock {
 		execLock.rlock()
 	}
 
 	if mp.signalPending.CompareAndSwap(0, 1) {
-		if GOOS == "darwin" || GOOS == "ios" {
+		if preemptNeedsExecLock {
 			pendingPreemptSignals.Add(1)
 		}
 
@@ -386,7 +386,7 @@ func preemptM(mp *m) {
 		signalM(mp, sigPreempt)
 	}
 
-	if GOOS == "darwin" || GOOS == "ios" {
+	if preemptNeedsExecLock {
 		execLock.runlock()
 	}
 }
@@ -453,7 +453,7 @@ func sigtrampgo(sig uint32, info *siginfo, ctx unsafe.Pointer) {
 			// no non-Go signal handler for sigPreempt.
 			// The default behavior for sigPreempt is to ignore
 			// the signal, so badsignal will be a no-op anyway.
-			if GOOS == "darwin" || GOOS == "ios" {
+			if preemptNeedsExecLock {
 				pendingPreemptSignals.Add(-1)
 			}
 			return
@@ -679,7 +679,7 @@ func sighandler(sig uint32, info *siginfo, ctxt unsafe.Pointer, gp *g) {
 		return
 	}
 
-	if (GOOS == "linux" || GOOS == "android") && sig == sigPerThreadSyscall {
+	if (GOOS == "linux" || GOOS == "android" || GOOS == "ohos") && sig == sigPerThreadSyscall {
 		// sigPerThreadSyscall is the same signal used by glibc for
 		// per-thread syscalls on Linux. We use it for the same purpose
 		// in non-cgo binaries. Since this signal is not _SigNotify,
@@ -1262,7 +1262,7 @@ var sigsetAllExiting = func() sigset {
 	// Apply GOOS-specific overrides here, rather than in osinit,
 	// because osinit may be called before sigsetAllExiting is
 	// initialized (#51913).
-	if GOOS == "linux" && iscgo {
+	if (GOOS == "linux" || GOOS == "ohos") && iscgo {
 		// #42494 glibc and musl reserve some signals for
 		// internal use and require they not be blocked by
 		// the rest of a normal C runtime. When the go runtime

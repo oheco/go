@@ -1,0 +1,83 @@
+# ohos is an independent target that also selects the Linux syscall ABI.
+env GOOS=ohos
+env GOARCH=arm64
+env CGO_ENABLED=0
+go list -f '{{join .GoFiles " "}}' .
+stdout '^abi_linux_arm64.go main.go platform_ohos.go unix.go$'
+env GODEBUG=goindex=0
+go list -f '{{join .GoFiles " "}}' .
+stdout '^abi_linux_arm64.go main.go platform_ohos.go unix.go$'
+go build -o app .
+go version -m app
+stdout 'GOOS=ohos'
+stdout 'GOARCH=arm64'
+stdout 'CGO_ENABLED=0'
+
+# Pure-Go PIE is supported, and still reports the independent target.
+go build -buildmode=pie -o app-pie .
+go version -m app-pie
+stdout 'GOOS=ohos'
+
+# Native-library/race modes require a target C toolchain.
+! go build -buildmode=c-shared .
+stderr 'requires external .cgo. linking, but cgo is not enabled'
+! go build -race .
+stderr '-race requires cgo'
+
+# The OHOS race shadow cannot represent high-address shared-library data.
+env CGO_ENABLED=1
+! go build -race -buildmode=c-shared .
+stderr '-race with -buildmode=c-shared is not supported on ohos/arm64'
+! go build -race -buildmode=plugin .
+stderr '-race with -buildmode=plugin is not supported on ohos/arm64'
+! go build -race -linkshared .
+stderr '-race with -linkshared is not supported on ohos/arm64'
+env CGO_ENABLED=0
+
+# The alias is one-way: Linux does not select ohos-only files.
+env GOOS=linux
+go list -f '{{join .GoFiles " "}}' .
+stdout '^abi_linux_arm64.go excluded_linux.go main.go unix.go$'
+
+-- go.mod --
+module example.com/ohos
+
+go 1.27
+-- main.go --
+package main
+
+import "runtime"
+
+func main() {
+	if runtime.GOOS != "ohos" || !ohosTarget || !linuxABI || !unixTarget {
+		panic("incorrect platform")
+	}
+}
+-- platform_ohos.go --
+package main
+
+const ohosTarget = true
+-- abi_linux_arm64.go --
+package main
+
+const linuxABI = true
+-- unix.go --
+//go:build unix
+
+package main
+
+const unixTarget = true
+-- excluded_linux.go --
+//go:build linux && !ohos
+
+package main
+
+var _ = mustNotBuildOnOhos
+-- excluded_android.go --
+package main
+
+var _ = mustNotBuildOnOhos
+-- excluded_ohos_amd64.go --
+package main
+
+var _ = mustNotBuildOnArm64

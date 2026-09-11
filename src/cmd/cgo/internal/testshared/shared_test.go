@@ -840,7 +840,44 @@ var stampTime = time.Now().Add(-3 * time.Second)
 // test-specific parts of GOROOT) appear old.
 func resetFileStamps() {
 	chtime := func(path string, info os.FileInfo, err error) error {
-		return os.Chtimes(path, oldTime, oldTime)
+		if err != nil {
+			return err
+		}
+		err = os.Chtimes(path, oldTime, oldTime)
+		if runtime.GOOS != "ohos" || !os.IsPermission(err) || info.IsDir() {
+			return err
+		}
+		// OHOS seals executed binaries and loaded shared libraries against
+		// metadata updates, even for their owner. Give this test a fresh
+		// inode with identical contents, and set its time before publishing
+		// it. This also avoids changing the source behind overlay symlinks.
+		info, err = os.Stat(path)
+		if err != nil || !info.Mode().IsRegular() {
+			return fmt.Errorf("cannot reset timestamp on %s: %v", path, err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		f, err := os.CreateTemp(filepath.Dir(path), ".stamp-*")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(f.Name())
+		_, err = f.Write(data)
+		if closeErr := f.Close(); err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			return err
+		}
+		if err := os.Chmod(f.Name(), info.Mode().Perm()); err != nil {
+			return err
+		}
+		if err := os.Chtimes(f.Name(), oldTime, oldTime); err != nil {
+			return err
+		}
+		return os.Rename(f.Name(), path)
 	}
 	reset := func(path string) {
 		if err := filepath.Walk(path, chtime); err != nil {

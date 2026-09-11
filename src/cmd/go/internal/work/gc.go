@@ -599,6 +599,10 @@ func (gcToolchain) ld(b *Builder, root *Action, targetPath, importcfg, mainpkg s
 		}
 	}
 	var ldflags []string
+	if cfg.Goos == "ohos" {
+		// cmd/go signs after writing the final build ID.
+		ldflags = append(ldflags, "-ohossign=false")
+	}
 	if cfg.BuildContext.InstallSuffix != "" {
 		ldflags = append(ldflags, "-installsuffix", cfg.BuildContext.InstallSuffix)
 	}
@@ -678,6 +682,9 @@ func (gcToolchain) ld(b *Builder, root *Action, targetPath, importcfg, mainpkg s
 
 func (gcToolchain) ldShared(b *Builder, root *Action, toplevelactions []*Action, targetPath, importcfg string, allactions []*Action) error {
 	ldflags := []string{"-installsuffix", cfg.BuildContext.InstallSuffix}
+	if cfg.Goos == "ohos" {
+		ldflags = append(ldflags, "-ohossign=false")
+	}
 	ldflags = append(ldflags, "-buildmode=shared")
 	ldflags = append(ldflags, forcedLdflags...)
 	ldflags = append(ldflags, root.Package.Internal.Ldflags...)

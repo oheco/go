@@ -710,7 +710,7 @@ func (b *Builder) updateBuildID(a *Action, target string) error {
 	}
 	if len(matches) == 0 {
 		// Assume the user specified -buildid= to override what we were going to choose.
-		return nil
+		return b.signHarmonyAction(a, target)
 	}
 
 	// Replace the build id in the file with the content-based ID.
@@ -724,6 +724,11 @@ func (b *Builder) updateBuildID(a *Action, target string) error {
 		return err
 	}
 	if err := w.Close(); err != nil {
+		return err
+	}
+
+	// Signing must follow the last build-ID write and precede executable caching.
+	if err := b.signHarmonyAction(a, target); err != nil {
 		return err
 	}
 

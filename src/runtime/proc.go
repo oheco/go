@@ -2088,7 +2088,7 @@ found:
 	checkdead()
 	unlock(&sched.lock)
 
-	if GOOS == "darwin" || GOOS == "ios" {
+	if preemptNeedsExecLock {
 		// Make sure pendingPreemptSignals is correct when an M exits.
 		// For #41702.
 		if mp.signalPending.Load() != 0 {
@@ -5243,6 +5243,8 @@ func syscall_runtime_AfterFork() {
 
 // inForkedChild is true while manipulating signals in the child process.
 // This is used to avoid calling libc functions in case we are using vfork.
+// OHOS uses the calling thread's marker instead, since libc
+// signal-chain state must not be changed by concurrent vfork children.
 var inForkedChild bool
 
 // Called from syscall package after fork in child.
@@ -5265,11 +5267,14 @@ var inForkedChild bool
 //go:nosplit
 //go:nowritebarrierrec
 func syscall_runtime_AfterForkInChild() {
-	// It's OK to change the global variable inForkedChild here
-	// because we are going to change it back. There is no race here,
-	// because if we are sharing address space with the parent process,
-	// then the parent process can not be running concurrently.
-	inForkedChild = true
+	// OHOS must not use the global flag: concurrent vfork children can
+	// reset it while another child is still clearing signal handlers.
+	// Its sigaction implementation uses the per-M fork marker.
+	if GOOS == "ohos" {
+		getg().m.inForkedChild = true
+	} else {
+		inForkedChild = true
+	}
 
 	clearSignalHandlers()
 
@@ -5277,11 +5282,19 @@ func syscall_runtime_AfterForkInChild() {
 	// so we know that nothing else has changed gp.m.sigmask.
 	msigrestore(getg().m.sigmask)
 
-	inForkedChild = false
+	if GOOS == "ohos" {
+		getg().m.inForkedChild = false
+	} else {
+		inForkedChild = false
+	}
 }
 
+// These kernels require preemption signals to be drained before execve.
+// On OHOS, interrupting execve can leave a subsequent attempt failing EPERM.
+const preemptNeedsExecLock = GOOS == "darwin" || GOOS == "ios" || GOOS == "ohos"
+
 // pendingPreemptSignals is the number of preemption signals
-// that have been sent but not received. This is only used on Darwin.
+// that have been sent but not received, on preemptNeedsExecLock platforms.
 // For #41702.
 var pendingPreemptSignals atomic.Int32
 
@@ -5292,9 +5305,9 @@ func syscall_runtime_BeforeExec() {
 	// Prevent thread creation during exec.
 	execLock.lock()
 
-	// On Darwin, wait for all pending preemption signals to
-	// be received. See issue #41702.
-	if GOOS == "darwin" || GOOS == "ios" {
+	// Wait for pending preemption signals on Darwin and OHOS.
+	// See issue #41702 for the Darwin case.
+	if preemptNeedsExecLock {
 		for pendingPreemptSignals.Load() > 0 {
 			osyield()
 		}

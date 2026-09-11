@@ -369,6 +369,10 @@ func readRandom(r []byte) int {
 }
 
 func goenvs() {
+	if (islibrary || isarchive) && goenvsLibrary != nil {
+		goenvsLibrary()
+		return
+	}
 	goenvs_unix()
 }
 

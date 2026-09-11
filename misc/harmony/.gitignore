@@ -1,0 +1,4 @@
+# Binaries left by profiling and local example builds.
+testdata/**/*.test
+testdata/**/libgoharmony.so
+testdata/**/libgoharmony.h

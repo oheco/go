@@ -112,6 +112,10 @@ Flags:
 		Set runtime.MemProfileRate to rate.
 	-msan
 		Link with C/C++ memory sanitizer support.
+	-ohossign
+		Sign OHOS output using binary-sign-tool when running on HarmonyOS.
+		Enabled by default. The go command disables it while linking and signs
+		after updating the build ID. Static C archives are not signed.
 	-o file
 		Write output to file (default a.out, or a.out.exe on Windows).
 	-pluginpath path

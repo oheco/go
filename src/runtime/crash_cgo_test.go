@@ -685,7 +685,7 @@ func TestCgoTracebackSigpanic(t *testing.T) {
 		testenv.SkipFlaky(t, 59912)
 	}
 	t.Parallel()
-	got := runTestProg(t, "testprogcgo", "TracebackSigpanic")
+	got := runTestProg(t, "testprogcgo", "TracebackSigpanic", "GO_TEST_CGO_DEFAULT_SIGSEGV=1")
 	t.Log(got)
 	// We should see the function that calls the C function.
 	want := "main.TracebackSigpanic"
@@ -792,7 +792,7 @@ func TestSegv(t *testing.T) {
 
 	for _, test := range []string{"Segv", "SegvInCgo", "TgkillSegv", "TgkillSegvInCgo"} {
 		// The tgkill variants only run on Linux.
-		if runtime.GOOS != "linux" && strings.HasPrefix(test, "Tgkill") {
+		if runtime.GOOS != "linux" && runtime.GOOS != "ohos" && strings.HasPrefix(test, "Tgkill") {
 			continue
 		}
 

@@ -592,6 +592,12 @@ func TestRelroSectionOverlapIssue67261(t *testing.T) {
 				t.Errorf("unexpected output from %s:\n%s\n", sprog, string(sout))
 			}
 		}
+		if runtime.GOOS == "ohos" {
+			// strip rewrites the file and invalidates its code signature.
+			if err := signHarmonyBinary(filepath.Join(dir, targ)); err != nil {
+				t.Fatal(err)
+			}
+		}
 		rcmd := testenv.Command(t, filepath.Join(dir, targ))
 		if out, err := rcmd.CombinedOutput(); err != nil {
 			t.Errorf("binary stripped by %s failed: %v:\n%s",

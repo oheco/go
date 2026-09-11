@@ -158,6 +158,17 @@ func instrumentInit() {
 		base.SetExitStatus(2)
 		base.Exit()
 	}
+	if cfg.BuildRace && cfg.Goos == "ohos" {
+		// The OHOS Go TSan mapping reserves shadow for low-address Go
+		// data. The musl loader places shared objects outside that range.
+		if cfg.BuildLinkshared {
+			base.Fatalf("-race with -linkshared is not supported on ohos/arm64")
+		}
+		switch cfg.BuildBuildmode {
+		case "c-archive", "c-shared", "shared", "plugin":
+			base.Fatalf("-race with -buildmode=%s is not supported on ohos/arm64", cfg.BuildBuildmode)
+		}
+	}
 	if cfg.BuildASan && !platform.ASanSupported(cfg.Goos, cfg.Goarch) {
 		fmt.Fprintf(os.Stderr, "-asan is not supported on %s/%s\n", cfg.Goos, cfg.Goarch)
 		base.SetExitStatus(2)
@@ -235,7 +246,7 @@ func buildModeInit() {
 					codegenArg = "-shared"
 				}
 
-			case "dragonfly", "freebsd", "illumos", "linux", "netbsd", "openbsd", "solaris":
+			case "dragonfly", "freebsd", "illumos", "linux", "ohos", "netbsd", "openbsd", "solaris":
 				// Use -shared so that the result is
 				// suitable for inclusion in a PIE or
 				// shared library.
@@ -250,7 +261,7 @@ func buildModeInit() {
 			codegenArg = "-fPIC"
 		} else {
 			switch cfg.Goos {
-			case "linux", "android", "freebsd":
+			case "linux", "ohos", "android", "freebsd":
 				codegenArg = "-shared"
 			case "windows":
 				// Do not add usual .exe suffix to the .dll file.

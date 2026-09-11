@@ -17,11 +17,14 @@ func (p OSArch) String() string {
 
 // RaceDetectorSupported reports whether goos/goarch supports the race
 // detector. There is a copy of this function in cmd/dist/test.go.
-// Race detector only supports 48-bit VMA on arm64. But it will always
+// On Linux the race detector only supports 48-bit VMA on arm64. OHOS also
+// supports 39-bit VMA with its own Go TSan object. This function will always
 // return true for arm64, because we don't have VMA size information during
 // the compile time.
 func RaceDetectorSupported(goos, goarch string) bool {
 	switch goos {
+	case "ohos":
+		return goarch == "arm64"
 	case "linux":
 		return goarch == "amd64" || goarch == "arm64" || goarch == "loong64" || goarch == "ppc64le" || goarch == "riscv64" || goarch == "s390x"
 	case "darwin":
@@ -50,6 +53,8 @@ func MSanSupported(goos, goarch string) bool {
 // sanitizer option.
 func ASanSupported(goos, goarch string) bool {
 	switch goos {
+	case "ohos":
+		return goarch == "arm64"
 	case "linux":
 		return goarch == "arm64" || goarch == "amd64" || goarch == "loong64" || goarch == "riscv64" || goarch == "ppc64le"
 	default:
@@ -61,7 +66,7 @@ func ASanSupported(goos, goarch string) bool {
 // ('go test -fuzz=.').
 func FuzzSupported(goos, goarch string) bool {
 	switch goos {
-	case "darwin", "freebsd", "linux", "openbsd", "windows":
+	case "darwin", "freebsd", "linux", "ohos", "openbsd", "windows":
 		return true
 	default:
 		return false
@@ -98,7 +103,7 @@ func MustLinkExternal(goos, goarch string, withCgo bool) bool {
 		}
 
 		switch goos {
-		case "android":
+		case "android", "ohos":
 			return true
 		case "dragonfly":
 			// It seems that on Dragonfly thread local storage is
@@ -142,7 +147,7 @@ func BuildModeSupported(compiler, buildmode, goos, goarch string) bool {
 		switch goos {
 		case "aix", "darwin", "ios", "windows":
 			return true
-		case "linux":
+		case "linux", "ohos":
 			switch goarch {
 			case "386", "amd64", "arm", "armbe", "arm64", "arm64be", "loong64", "ppc64", "ppc64le", "riscv64", "s390x":
 				return true
@@ -162,7 +167,7 @@ func BuildModeSupported(compiler, buildmode, goos, goarch string) bool {
 
 	case "c-shared":
 		switch platform {
-		case "linux/amd64", "linux/arm", "linux/arm64", "linux/loong64", "linux/386", "linux/ppc64", "linux/ppc64le", "linux/riscv64", "linux/s390x",
+		case "ohos/arm64", "linux/amd64", "linux/arm", "linux/arm64", "linux/loong64", "linux/386", "linux/ppc64", "linux/ppc64le", "linux/riscv64", "linux/s390x",
 			"android/amd64", "android/arm", "android/arm64", "android/386",
 			"freebsd/amd64",
 			"darwin/amd64", "darwin/arm64",
@@ -180,7 +185,7 @@ func BuildModeSupported(compiler, buildmode, goos, goarch string) bool {
 
 	case "pie":
 		switch platform {
-		case "linux/386", "linux/amd64", "linux/arm", "linux/arm64", "linux/loong64", "linux/ppc64", "linux/ppc64le", "linux/riscv64", "linux/s390x",
+		case "ohos/arm64", "linux/386", "linux/amd64", "linux/arm", "linux/arm64", "linux/loong64", "linux/ppc64", "linux/ppc64le", "linux/riscv64", "linux/s390x",
 			"android/amd64", "android/arm", "android/arm64", "android/386",
 			"freebsd/amd64",
 			"darwin/amd64", "darwin/arm64",
@@ -194,14 +199,14 @@ func BuildModeSupported(compiler, buildmode, goos, goarch string) bool {
 
 	case "shared":
 		switch platform {
-		case "linux/386", "linux/amd64", "linux/arm", "linux/arm64", "linux/ppc64", "linux/ppc64le", "linux/s390x":
+		case "ohos/arm64", "linux/386", "linux/amd64", "linux/arm", "linux/arm64", "linux/ppc64", "linux/ppc64le", "linux/s390x":
 			return true
 		}
 		return false
 
 	case "plugin":
 		switch platform {
-		case "linux/amd64", "linux/arm", "linux/arm64", "linux/386", "linux/loong64", "linux/riscv64", "linux/s390x", "linux/ppc64", "linux/ppc64le",
+		case "ohos/arm64", "linux/amd64", "linux/arm", "linux/arm64", "linux/386", "linux/loong64", "linux/riscv64", "linux/s390x", "linux/ppc64", "linux/ppc64le",
 			"android/amd64", "android/386",
 			"darwin/amd64", "darwin/arm64",
 			"freebsd/amd64":
@@ -216,7 +221,7 @@ func BuildModeSupported(compiler, buildmode, goos, goarch string) bool {
 
 func InternalLinkPIESupported(goos, goarch string) bool {
 	switch goos + "/" + goarch {
-	case "android/arm64",
+	case "ohos/arm64", "android/arm64",
 		"darwin/amd64", "darwin/arm64",
 		"linux/amd64", "linux/arm64", "linux/loong64", "linux/ppc64", "linux/ppc64le", "linux/s390x",
 		"windows/386", "windows/amd64", "windows/arm64":

@@ -27,6 +27,8 @@ func TgkillSegvInCgo() {
 
 	syscall.Tgkill(syscall.Getpid(), syscall.Gettid(), syscall.SIGSEGV)
 
-	// Wait for the OS to deliver the signal.
-	C.pause()
+	// Other signals can interrupt pause before SIGSEGV is delivered.
+	for {
+		C.pause()
+	}
 }

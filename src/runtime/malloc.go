@@ -600,6 +600,13 @@ func mallocinit() {
 		for i := 0x7f; i >= 0; i-- {
 			var p uintptr
 			switch {
+			case raceenabled && GOOS == "ohos" && GOARCH == "arm64":
+				// Match MappingGoOhos39 in the OHOS Go TSan runtime.
+				// Keep the Go heap below 32 GiB on 39-bit hosts.
+				p = uintptr(i)<<28 | uintptrMask&0x0100000000
+				if p >= uintptrMask&0x0800000000 {
+					continue
+				}
 			case raceenabled && GOARCH == "riscv64" && vmaSize == 39:
 				p = uintptr(i)<<28 | uintptrMask&(0x0013<<28)
 				if p >= uintptrMask&0x000f00000000 {

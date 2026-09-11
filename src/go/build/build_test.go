@@ -381,6 +381,8 @@ func (r readNopCloser) Close() error {
 var (
 	ctxtP9      = Context{GOARCH: "arm", GOOS: "plan9"}
 	ctxtAndroid = Context{GOARCH: "arm", GOOS: "android"}
+	ctxtOhos    = Context{GOARCH: "arm64", GOOS: "ohos"}
+	ctxtLinux   = Context{GOARCH: "arm64", GOOS: "linux"}
 )
 
 var matchFileTests = []struct {
@@ -395,6 +397,19 @@ var matchFileTests = []struct {
 	{ctxtP9, "foo.go", "", true},
 	{ctxtP9, "foo1.go", "// +build linux\n\npackage main\n", false},
 	{ctxtP9, "foo.badsuffix", "", false},
+	{ctxtOhos, "foo_ohos.go", "", true},
+	{ctxtOhos, "foo_ohos_arm64.go", "", true},
+	{ctxtOhos, "foo_ohos_arm64.syso", "", true},
+	{ctxtOhos, "foo_linux_arm64.syso", "", false},
+	{ctxtOhos, "foo_linux.syso", "", false},
+	{ctxtOhos, "foo_arm64.syso", "", true},
+	{ctxtOhos, "foo_linux_arm64.go", "", true},
+	{ctxtOhos, "foo_linux.go", "//go:build linux && !ohos\n\npackage main\n", false},
+	{ctxtOhos, "foo.go", "//go:build ohos && linux && unix\n\npackage main\n", true},
+	{ctxtOhos, "foo_android.go", "", false},
+	{ctxtOhos, "foo_ohos_amd64.go", "", false},
+	{ctxtLinux, "foo_ohos.go", "", false},
+	{ctxtLinux, "foo.go", "//go:build ohos\n\npackage main\n", false},
 	{ctxtAndroid, "foo_linux.go", "", true},
 	{ctxtAndroid, "foo_android.go", "", true},
 	{ctxtAndroid, "foo_plan9.go", "", false},

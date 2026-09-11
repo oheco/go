@@ -1936,7 +1936,7 @@ func (ctxt *Context) eval(x constraint.Expr, allTags map[string]bool) bool {
 //	$GOOS
 //	$GOARCH
 //	ctxt.Compiler
-//	linux (if GOOS = android)
+//	linux (if GOOS = android or ohos)
 //	solaris (if GOOS = illumos)
 //	darwin (if GOOS = ios)
 //	unix (if this is a Unix GOOS)
@@ -1956,7 +1956,7 @@ func (ctxt *Context) matchTag(name string, allTags map[string]bool) bool {
 	if name == ctxt.GOOS || name == ctxt.GOARCH || name == ctxt.Compiler {
 		return true
 	}
-	if ctxt.GOOS == "android" && name == "linux" {
+	if (ctxt.GOOS == "android" || ctxt.GOOS == "ohos") && name == "linux" {
 		return true
 	}
 	if ctxt.GOOS == "illumos" && name == "solaris" {
@@ -1989,10 +1989,18 @@ func (ctxt *Context) matchTag(name string, allTags map[string]bool) bool {
 //	name_$(GOOS)_$(GOARCH)_test.*
 //
 // Exceptions:
-// if GOOS=android, then files with GOOS=linux are also matched.
+// if GOOS=android or GOOS=ohos, then files with GOOS=linux are also matched.
 // if GOOS=illumos, then files with GOOS=solaris are also matched.
 // if GOOS=ios, then files with GOOS=darwin are also matched.
 func (ctxt *Context) goodOSArchFile(name string, allTags map[string]bool) bool {
+	// Source aliases do not imply binary ABI compatibility. In particular,
+	// Linux's ARM64 race object assumes a 48-bit virtual address space.
+	if ctxt.GOOS == "ohos" && strings.HasSuffix(name, ".syso") {
+		stem := strings.TrimSuffix(name, ".syso")
+		if strings.HasSuffix(stem, "_linux") || strings.HasSuffix(stem, "_linux_"+ctxt.GOARCH) {
+			return false
+		}
+	}
 	name, _, _ = strings.Cut(name, ".")
 
 	// Before Go 1.4, a file called "linux.go" would be equivalent to having a

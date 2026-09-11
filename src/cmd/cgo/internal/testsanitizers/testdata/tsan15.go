@@ -24,9 +24,9 @@ static void *thr(void *arg) {
 
 static void *sendthr(void *arg) {
 	pthread_t th = *(pthread_t*)arg;
-	while (1) {
+	for (int i = 0; i < 1000; i++) {
 		int r = pthread_kill(th, SIGWINCH);
-		if (r < 0)
+		if (r != 0)
 			break;
 	}
 	return 0;
@@ -37,7 +37,11 @@ static void foo() {
 	pthread_t th2;
 	pthread_create(th, 0, thr, 0);
 	pthread_create(&th2, 0, sendthr, th);
+	// A pthread_t becomes invalid after pthread_join. Stop the sender
+	// before joining its target; musl may unmap the thread descriptor.
+	pthread_join(th2, 0);
 	pthread_join(*th, 0);
+	free(th);
 }
 */
 import "C"

@@ -8,6 +8,7 @@ package user
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,7 +17,24 @@ import (
 )
 
 func current() (*User, error) {
-	return lookupUnixUid(syscall.Getuid())
+	uid := syscall.Getuid()
+	u, err := lookupUnixUid(uid)
+	if runtime.GOOS == "ohos" {
+		// Application UIDs need not have a passwd entry on OHOS. Like
+		// the pure-Go implementation, use the shell's name and home as
+		// a fallback, while always taking numeric IDs from the kernel.
+		if _, unknown := err.(UnknownUserIdError); unknown {
+			home, _ := os.UserHomeDir()
+			name := os.Getenv("USER")
+			if name != "" && home != "" {
+				return &User{
+					Uid: strconv.Itoa(uid), Gid: strconv.Itoa(syscall.Getgid()),
+					Username: name, HomeDir: home,
+				}, nil
+			}
+		}
+	}
+	return u, err
 }
 
 func lookupUser(username string) (*User, error) {

@@ -42,7 +42,7 @@ func main() {
 		}
 		var tags []string
 		if target == "linux" {
-			tags = append(tags, "!android") // must explicitly exclude android for linux
+			tags = append(tags, "!android", "!ohos") // exclude platforms that also match linux
 		}
 		if target == "solaris" {
 			tags = append(tags, "!illumos") // must explicitly exclude illumos for solaris

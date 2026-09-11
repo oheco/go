@@ -75,6 +75,12 @@ func pidfdFind(pid int) (uintptr, error) {
 	if err != nil {
 		return 0, convertESRCH(err)
 	}
+	if runtime.GOOS == "ohos" && unix.PidFDSendSignal(h, 0) == syscall.ESRCH {
+		// OHOS can briefly open a pidfd after Wait has reaped the process.
+		// Probe the handle, not the numeric PID, to avoid a PID reuse race.
+		syscall.Close(int(h))
+		return 0, ErrProcessDone
+	}
 	return h, nil
 }
 

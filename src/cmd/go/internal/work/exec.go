@@ -1539,6 +1539,9 @@ func copyToStdout(r io.Reader) error {
 func (b *Builder) linkActionID(a *Action) cache.ActionID {
 	p := a.Package
 	h := cache.NewHash("link " + p.ImportPath)
+	if harmonySigningRequired() {
+		fmt.Fprintln(h, "harmony-sign-v2")
+	}
 
 	// Toolchain-independent configuration.
 	fmt.Fprintf(h, "link\n")
@@ -1883,6 +1886,9 @@ func (b *Builder) linkSharedActionID(a *Action) cache.ActionID {
 
 	// Toolchain-independent configuration.
 	fmt.Fprintf(h, "linkShared\n")
+	if harmonySigningRequired() {
+		fmt.Fprintf(h, "harmony-sign-v2\n")
+	}
 	fmt.Fprintf(h, "goos %s goarch %s\n", cfg.Goos, cfg.Goarch)
 
 	// Toolchain-dependent configuration, shared with b.linkActionID.
@@ -1932,7 +1938,10 @@ func (b *Builder) linkShared(ctx context.Context, a *Action) (err error) {
 	// TODO(rsc): There is a missing updateBuildID here,
 	// but we have to decide where to store the build ID in these files.
 	a.built = a.Target
-	return BuildToolchain.ldShared(b, a, a.Deps[0].Deps, a.Target, importcfg, a.Deps)
+	if err := BuildToolchain.ldShared(b, a, a.Deps[0].Deps, a.Target, importcfg, a.Deps); err != nil {
+		return err
+	}
+	return b.signHarmonyAction(a, a.Target)
 }
 
 // BuildInstallFunc is the action for installing a single package or executable.

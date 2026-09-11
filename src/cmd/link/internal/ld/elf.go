@@ -1825,7 +1825,9 @@ func asmbElf(ctxt *Link) {
 		if interpreter == "" {
 			switch ctxt.HeadType {
 			case objabi.Hlinux:
-				if buildcfg.GOOS == "android" {
+				if buildcfg.GOOS == "ohos" {
+					interpreter = "/lib/ld-musl-aarch64.so.1"
+				} else if buildcfg.GOOS == "android" {
 					interpreter = thearch.ELF.Androiddynld
 					if interpreter == "" {
 						Exitf("ELF interpreter not set")

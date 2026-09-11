@@ -247,7 +247,13 @@ func Fchmodat(dirfd int, path string, mode uint32, flags int) error {
 	// Linux fchmodat doesn't support the flags parameter, but fchmodat2 does.
 	// Try fchmodat2 if flags are specified.
 	if flags != 0 {
-		err := fchmodat2(dirfd, path, mode, flags)
+		// HarmonyOS rejects fchmodat2 with SIGSYS instead of ENOSYS.
+		// Return the same result as an older Linux kernel so callers can
+		// use the existing /proc/self/fd fallback safely.
+		err := error(ENOSYS)
+		if runtime.GOOS != "ohos" {
+			err = fchmodat2(dirfd, path, mode, flags)
+		}
 		if err == ENOSYS {
 			// fchmodat2 isn't available. If the flags are known to be valid,
 			// return EOPNOTSUPP to indicate that fchmodat doesn't support them.
@@ -797,6 +803,13 @@ func recvmsgRaw(fd int, p, oob []byte, flags int, rsa *RawSockaddrAny) (n, oobn 
 	msg.Iovlen = 1
 	if n, err = recvmsg(fd, &msg, flags); err != nil {
 		return
+	}
+	if runtime.GOOS == "ohos" && n == 0 && msg.Controllen == 0 {
+		// OHOS may leave an undefined source sockaddr on stream EOF. A
+		// datagram with an empty payload still has a meaningful sender.
+		if typ, e := GetsockoptInt(fd, SOL_SOCKET, SO_TYPE); e == nil && typ == SOCK_STREAM {
+			rsa.Addr.Family = AF_UNSPEC
+		}
 	}
 	oobn = int(msg.Controllen)
 	recvflags = int(msg.Flags)

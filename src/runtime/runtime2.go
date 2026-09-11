@@ -655,6 +655,7 @@ type m struct {
 	newSigstack     bool // minit on C thread called sigaltstack
 	printlock       int8
 	incgo           bool          // m is executing a cgo call
+	inForkedChild   bool          // OHOS: this M's vfork child is resetting signals
 	isextra         bool          // m is an extra m
 	isExtraInC      bool          // m is an extra m that does not have any Go frames
 	isExtraInSig    bool          // m is an extra m in a signal handler
